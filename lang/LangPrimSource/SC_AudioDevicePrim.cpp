@@ -100,31 +100,43 @@ int listDevices(VMGlobals* g, int type) {
             continue;
 
         propertyAddress.mScope = kAudioObjectPropertyScopeGlobal;
-        propertyAddress.mSelector = kAudioDevicePropertyDeviceName;
-
-        // err = AudioDeviceGetPropertyInfo(devices[i], 0, false, kAudioDevicePropertyDeviceName, &count, 0);
+        propertyAddress.mSelector = kAudioDevicePropertyDeviceNameCFString;
 
         err = AudioObjectGetPropertyDataSize(devices[i], &propertyAddress, 0, NULL, &count);
-
         if (err != kAudioHardwareNoError) {
             break;
         }
 
-        char* name = (char*)malloc(count);
-        // err = AudioDeviceGetProperty(devices[i], 0, false, kAudioDevicePropertyDeviceName, &count, name);
-        err = AudioObjectGetPropertyData(devices[i], &propertyAddress, 0, NULL, &count, name);
-        if (err != kAudioHardwareNoError) {
-            free(name);
-            break;
+        CFStringRef nameRef;
+        err = AudioObjectGetPropertyData(devices[i], &propertyAddress, 0, NULL, &count, &nameRef);
+
+        if (err == kAudioHardwareNoError) {
+            const char* c_str = CFStringGetCStringPtr(nameRef, kCFStringEncodingUTF8);
+
+            PyrString* string;
+
+            if (c_str) {
+                string = newPyrString(g->gc, c_str, 0, true);
+            } else {
+                // Fallback for when the direct pointer isn't available
+                CFIndex size = CFStringGetMaximumSizeForEncoding(CFStringGetLength(nameRef), kCFStringEncodingUTF8) + 1;
+                char* nameBytes = new char[size];
+                if (CFStringGetCString(nameRef, nameBytes, size, kCFStringEncodingUTF8)) {
+                    string = newPyrString(g->gc, nameBytes, 0, true);
+                } else {
+                    delete[] nameBytes;
+                    CFRelease(nameRef);
+                    break;
+                }
+                delete[] nameBytes;
+            }
+            SetObject(devArray->slots + j, string);
+            devArray->size++;
+            g->gc->GCWriteNew(devArray, (PyrObject*)string);
+
+            CFRelease(nameRef);
+            j++;
         }
-
-        PyrString* string = newPyrString(g->gc, name, 0, true);
-        SetObject(devArray->slots + j, string);
-        devArray->size++;
-        g->gc->GCWriteNew(devArray, (PyrObject*)string); // we know array is white so we can use GCWriteNew
-
-        free(name);
-        j++;
     }
 
     free(devices);
