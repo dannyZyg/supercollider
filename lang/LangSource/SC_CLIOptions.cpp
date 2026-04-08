@@ -120,6 +120,11 @@ po::options_description CLIOptions::buildTerminalDescription(SC_TerminalClient::
             "Enter daemon mode"
         )
         (
+            "lsp-mode,L",
+            po::bool_switch(&terminalOptions.mLSPMode)->default_value(terminalOptions.mLSPMode),
+            "Enter LSP mode (stdin active but no REPL, pass input directly to LanguageServer)"
+        )
+        (
             "heap-growth,g",
             po::value<std::string>()->default_value(convertMemoryInteger(terminalOptions.mMemGrow))->notifier([&](const std::string &heapGrowth) {
                 terminalOptions.mMemGrow = parseMemoryString(heapGrowth);

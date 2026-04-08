@@ -441,6 +441,11 @@ void SC_TerminalClient::onInputRead(const boost::system::error_code& error, std:
     }
 
     if (error == boost::asio::error::eof) {
+        if (options().mLSPMode) {
+            postfl("SCLang Input: EOF (LSP mode - keeping alive)\n");
+            startInputRead(); // Restart to keep thread alive
+            return;
+        }
         postfl("SCLang Input: EOF. Will quit.\n");
         onQuit(0);
         return;
@@ -460,6 +465,9 @@ void SC_TerminalClient::onInputRead(const boost::system::error_code& error, std:
             return;
         }
 #endif
+        if (options().mLSPMode) {
+            LSPStdioTransport::onStdinData(inputBuffer.data(), bytes_transferred);
+        }
         pushCmdLine(inputBuffer.data(), bytes_transferred);
     }
 }
